@@ -2,6 +2,7 @@
     Evaluate classification performance with optional voting.
     Will use H5 dataset in default. If using normal, will shift to the normal dataset.
 '''
+from timeit import default_timer as timer
 import tensorflow as tf
 import numpy as np
 import argparse
@@ -113,6 +114,8 @@ def eval_one_epoch(sess, ops, num_votes=1, topk=1):
     shape_ious = []
     total_seen_class = [0 for _ in range(NUM_CLASSES)]
     total_correct_class = [0 for _ in range(NUM_CLASSES)]
+    total_time = 0.
+    total_batches = 0.
 
     while TEST_DATASET.has_next_batch():
         batch_data, batch_label = TEST_DATASET.next_batch(augment=False)
@@ -136,7 +139,12 @@ def eval_one_epoch(sess, ops, num_votes=1, topk=1):
             feed_dict = {ops['pointclouds_pl']: rotated_data,
                          ops['labels_pl']: cur_batch_label,
                          ops['is_training_pl']: is_training}
+            start = timer()
             loss_val, pred_val = sess.run([ops['loss'], ops['pred']], feed_dict=feed_dict)
+            end = timer()
+            if batch_idx != 0:
+                total_time += (end - start)
+                total_batches += 1
             batch_pred_sum += pred_val
         pred_val = np.argmax(batch_pred_sum, 1)
         correct = np.sum(pred_val[0:bsize] == batch_label[0:bsize])
@@ -152,6 +160,7 @@ def eval_one_epoch(sess, ops, num_votes=1, topk=1):
     log_string('eval mean loss: %f' % (loss_sum / float(batch_idx)))
     log_string('eval accuracy: %f'% (total_correct / float(total_seen)))
     log_string('eval avg class acc: %f' % (np.mean(np.array(total_correct_class)/np.array(total_seen_class,dtype=np.float))))
+    log_string('mean evaluation time of one batch: %f' % (total_time / total_batches))
 
     class_accuracies = np.array(total_correct_class)/np.array(total_seen_class,dtype=np.float)
     for i, name in enumerate(SHAPE_NAMES):
