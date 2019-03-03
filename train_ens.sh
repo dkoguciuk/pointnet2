@@ -1,7 +1,6 @@
 #!/bin/bash
 
-MODELS=10
-
-for a in `seq 1 $MODELS`; do
-    python train_ens.py
+for i in 1 2 3 4
+do
+    python train_shapenet.py --log_dir log_$i
 done
